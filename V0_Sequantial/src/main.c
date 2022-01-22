@@ -11,6 +11,7 @@ int main(int argc, char* argv[])
     int** sign;
     int** ising_sign;
     time_t t;
+
     /* Intializes random number generator */
     srand((unsigned)time(&t));
 
@@ -76,8 +77,6 @@ int main(int argc, char* argv[])
         }
         printf("\n\n");
 
-        // printf("%d\n", *(sign[8] - 1));
-
         for (int i = 0; i < n; i++) {
             printf("\t");
 
@@ -96,6 +95,17 @@ int main(int argc, char* argv[])
         }
     }
 
+    // free memory
+
+    for (int i = 0; i < n + 2; i++) {
+        free(sign[i]);
+    }
+    free(sign);
+
+    for (int i = 0; i < n; i++) {
+        free(ising_sign[i]);
+    }
+    free(ising_sign);
+
     return 0;
 }
-// 4, 0 [4, 1][5, 0][6, 1][5, 2]
