@@ -142,6 +142,9 @@ int main(int argc, char* argv[])
 
 __global__ void vector_add(int* ising_sign_d, int* ising_out)
 {
+    int block_elem = (n * n) / nb;
+    __shared__ int shared_mem = [block_elem];
+
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int blocks = b * b;
     int k_id = idx * blocks;
