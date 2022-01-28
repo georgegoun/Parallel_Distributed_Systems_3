@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=v2
+#SBATCH --job-name=v3
 #SBATCH --nodes=1
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
