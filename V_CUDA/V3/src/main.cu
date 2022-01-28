@@ -27,7 +27,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
     }
 }
 
-__global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, int side_blocks);
+__global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, int side_blocks, int side_block_elems);
 
 int main(int argc, char* argv[])
 {
@@ -113,9 +113,10 @@ int main(int argc, char* argv[])
         if ((nb * bs * b * b) != (n * n)) {
             printf("error\n");
         }
-        int block_elems = (sqrt((n * n) / nb) + 1) * (sqrt((n * n) / nb) + 1);
+        int block_elems = (sqrt((n * n) / nb) + 2) * (sqrt((n * n) / nb) + 2);
         int side_blocks = sqrt(nb);
-        vector_add<<<nb, bs>>>(ising_sign_d, ising_out, block_elems, side_blocks);
+        int side_blocks_elems = sqrt(bs * b * b);
+        vector_add<<<nb, bs>>>(ising_sign_d, ising_out, block_elems, side_blocks, side_blocks_elems);
         ising_out_h = (int*)malloc(ising_sign_size * sizeof(int));
         gpuErrchk(cudaMemcpy(ising_out_h, ising_out, ising_sign_size * sizeof(int), cudaMemcpyDeviceToHost));
 
@@ -143,10 +144,10 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-__global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, int side_blocks)
+__global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, int side_blocks, int side_block_elems)
 {
     // n*n/nb
-    __shared__ int shared_mem[25];
+    __shared__ int shared_mem[36];
     unsigned int xBlock = blockDim.x * blockIdx.x;
     unsigned int yBlock = blockDim.y * blockIdx.y;
     unsigned int xIndex = xBlock + threadIdx.x;
@@ -155,7 +156,7 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
 
     // threads inside cooperate to fill shared memory
     int thread_shared_count = block_elems / bs;
-    int start = (idx % bs) * thread_shared_count;
+    int idx_pos = (idx % bs) * thread_shared_count; // 0-6-12-18
 
     if ((idx + 1) % nb == 0) {
         thread_shared_count += block_elems % bs;
@@ -182,11 +183,35 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
 
     // TODO: Find ising_sign_d values using column-lines
     // think 2d in the right way
-    for (int i = start; i < start + thread_shared_count; i++) {
-        shared_mem[i] = ising_sign_d[];
-    }
 
-    printf("idx: %d\t|| xBlock: %d\t| Thread Count: %d\t| line: %d\t|| column: %d\t|| size: %d\n", idx, xBlock, thread_shared_count, line, column, block_elems);
+    int line_index = line * (side_block_elems + 1); // 0*5, 1*5
+    int column_index = column * (side_block_elems + 1); // 0*5, 1*5
+    // columnsss = (n + 2) / side_block_elems;
+
+    // int j = line_index * (n + 2) + column_index;
+
+    int j = line_index * (n + 2) + column_index;
+    j += (idx_pos / (side_block_elems + 2)) * (n + 2) + idx_pos % (side_block_elems + 2);
+    for (int i = idx_pos; i < idx_pos + thread_shared_count; i++, j++) {
+        if ((i + 1) % (side_block_elems + 3) == 0) {
+            j += n + 2 - side_block_elems - 2;
+        }
+        shared_mem[i] = ising_sign_d[j];
+        if (xBlock == 0) {
+            printf("idx %d: i=%d, j=%d\n", idx, i, j);
+        }
+    }
+    printf("\n");
+    __syncthreads();
+    if (idx == 0) {
+        for (int i = 0; i < 36; i++) {
+            printf("%d ", shared_mem[i]);
+            if ((i + 1) % 6 == 0) {
+                printf("\n");
+            }
+        }
+    }
+    // printf("idx: %d\t|| xBlock: %d\t| Thread Count: %d\t| line: %d\t|| column: %d\t|| size: %d\n", idx, xBlock, thread_shared_count, line, column, block_elems);
 
     // column = (threads * nb)/(side_blocks* sideblocks) = 4
 
@@ -198,8 +223,6 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
     //         = ising_sign_d[i];
     //     printf("%d: %d\n", idx, shared_mem[i]);
     // }
-
-    __syncthreads();
 
     // for (int i = 0; i < block_elems; i++) {
     // }
