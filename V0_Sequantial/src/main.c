@@ -4,107 +4,110 @@
 #include <time.h>
 
 #define n 8
-#define k 6
+#define k 3
 
 int main(int argc, char* argv[])
 {
-    int** sign;
-    int** ising_sign;
+    int* sign;
+    int* ising_sign;
     time_t t;
 
     /* Intializes random number generator */
     srand((unsigned)time(&t));
 
-    // Malloc 2D Arrays
+    int sign_size = (n + 2) * (n + 2);
+    int ising_sign_size = n * n;
+    // Malloc 1D Arrays
 
-    sign = (int**)malloc((n + 2) * sizeof(int*));
+    sign = (int*)malloc(sign_size * sizeof(int));
+    ising_sign = (int*)malloc(ising_sign_size * sizeof(int));
 
-    for (int i = 0; i < n + 2; i++) {
-        sign[i] = (int*)malloc((n + 2) * sizeof(int));
+    // Could use module but is better for CPI to surround the array with 1 line of values
+
+    // Initialize 1D array
+
+    for (int i = 0; i < sign_size; i++) {
+        sign[i] = 1 - (2 * (rand() % 2));
     }
+    printf("\n");
 
-    ising_sign = (int**)malloc(n * sizeof(int*));
-
-    for (int i = 0; i < n; i++) {
-        ising_sign[i] = (int*)malloc(n * sizeof(int));
-    }
-
-    // Could use module but better surround the array with 1 line of values
-    // Example cost of 40000 X 40000 array in CPI
-
-    // Initialize 2D array
-
-    for (int i = 1; i < n + 1; i++) {
-        for (int j = 1; j < n + 1; j++) {
-            sign[i][j] = 1 - (2 * (rand() % 2));
-        }
-        printf("\n");
-    }
-
-    for (int count = 0; count < k; count++) {
-        // boundaries set
-
+    for (int k_count = 0; k_count < k; k_count++) {
         // 1st column
-        sign[0][0] = 0;
-        sign[n + 1][0] = 0;
-        for (int i = 0; i < n; i++) {
-            sign[i + 1][0] = sign[i + 1][n];
+        sign[0] = 0;
+        sign[(n + 2) * (n + 1)] = 0;
+        for (int l = 0, i = n + 2, j = n + 2 + n; l < n; l++) {
+            sign[i] = sign[j];
+            i += n + 2;
+            j += n + 2;
         }
 
         // 1st row
-        sign[0][n + 1] = 0;
-        for (int i = 0; i < n; i++) {
-            sign[0][i + 1] = sign[n][i + 1];
+        for (int l = 0, i = 1, j = n * (n + 2) + 1; l < n; l++) {
+            sign[i] = sign[j];
+            i++;
+            j++;
         }
 
         // 2nd column
-        sign[n + 1][n + 1] = 0;
-        for (int i = 0; i < n; i++) {
-            sign[i + 1][n + 1] = sign[i + 1][1];
+        sign[n + 1] = 0;
+        sign[(n + 2) * (n + 2) - 1] = 0;
+        for (int l = 0, i = n + 2 + n + 1, j = n + 2 + 1; l < n; l++) {
+            sign[i] = sign[j];
+            i += n + 2;
+            j += n + 2;
         }
 
         // 2nd row
-        for (int i = 0; i < n; i++) {
-            sign[n + 1][i + 1] = sign[1][i + 1];
+        for (int l = 0, i = (n + 2) * (n + 1) + 1, j = (n + 2) + 1; l < n; l++) {
+            sign[i] = sign[j];
+            i++;
+            j++;
         }
 
         // print sign array
-        for (int i = 0; i < n + 2; i++) {
-            for (int j = 0; j < n + 2; j++) {
-                printf("%d\t", sign[i][j]);
+        for (int i = 0; i < sign_size; i++) {
+            printf("%d\t", sign[i]);
+            if ((i + 1) % (n + 2) == 0) {
+                printf("\n");
             }
-            printf("\n");
         }
         printf("\n\n");
 
-        for (int i = 0; i < n; i++) {
+        for (int i = 0, j = n + 3; i < ising_sign_size;) {
             printf("\t");
-
-            for (int j = 0; j < (n); j++) {
-                ising_sign[i][j] = sign[i + 1][j + 1] + sign[i - 1 + 1][j + 1] + sign[i + 1][j - 1 + 1] + sign[i + 1 + 1][j + 1] + sign[i + 1][j + 1 + 1];
-                ising_sign[i][j] /= abs(ising_sign[i][j]);
-                printf("%d\t", ising_sign[i][j]);
+            for (int t_i = 0; t_i < n; t_i++, i++, j++) {
+                ising_sign[i] = sign[j] + sign[j - 1] + sign[j + 1] + sign[j - n - 2] + sign[j + n + 2];
+                ising_sign[i] /= abs(ising_sign[i]);
+                printf("%d\t", ising_sign[i]);
             }
+            j += 2;
             printf("\n");
         }
-        printf("\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                sign[i + 1][j + 1] = ising_sign[i][j];
+
+        // for (int i = 0, j = n + 3; i < n * n; i++) {
+        //     printf("\t");
+        //     if ((i + 1) % n == 0) {
+        //         j += 2;
+        //         printf("\n");
+        //     }
+        //     // self left right up down
+        //     ising_sign[i] = sign[j] + sign[j - 1] + sign[j + 1] + sign[j - n - 2] + sign[j + n + 2];
+        //     ising_sign[i] /= abs(ising_sign[i]);
+        //     printf("%d\t", ising_sign[i]);
+        // }
+
+        for (int i = 0, j = n + 3; i < ising_sign_size;) {
+            for (int t_i = 0; t_i < n; t_i++, i++, j++) {
+                sign[j] = ising_sign[i];
             }
+            j += 2;
         }
+        printf("\n");
     }
 
     // free memory
 
-    for (int i = 0; i < n + 2; i++) {
-        free(sign[i]);
-    }
     free(sign);
-
-    for (int i = 0; i < n; i++) {
-        free(ising_sign[i]);
-    }
     free(ising_sign);
 
     return 0;

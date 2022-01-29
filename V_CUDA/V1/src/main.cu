@@ -28,7 +28,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
     }
 }
 
-__global__ void vector_add(int* ising_sign_d, int* ising_out, int N);
+__global__ void v1_kernel(int* ising_sign_d, int* ising_out);
 
 int main(int argc, char* argv[])
 {
@@ -50,10 +50,9 @@ int main(int argc, char* argv[])
 
     sign = (int*)malloc(sign_size * sizeof(int));
 
-    // Could use module but better surround the array with 1 line of values
-    // Example cost of 40000 X 40000 array in CPI
+    // Could use module but is better for CPI to surround the array with 1 line of values
 
-    // Initialize 2D array
+    // Initialize 1D array
 
     for (int i = 0; i < sign_size; i++) {
         sign[i] = 1 - (2 * (rand() % 2));
@@ -63,7 +62,6 @@ int main(int argc, char* argv[])
     // boundaries set
 
     for (int k_count = 0; k_count < k; k_count++) {
-        printf("\n\n\nIteration_%d:\n\n", k_count + 1);
         // 1st column
         sign[0] = 0;
         sign[(n + 2) * (n + 1)] = 0;
@@ -111,7 +109,7 @@ int main(int argc, char* argv[])
         gpuErrchk(cudaMemcpy(ising_sign_d, sign, (n + 2) * (n + 2) * sizeof(int), cudaMemcpyHostToDevice));
         gpuErrchk(cudaMalloc((void**)&ising_out, n * n * sizeof(int)));
 
-        vector_add<<<nb, bs>>>(ising_sign_d, ising_out, n);
+        v1_kernel<<<nb, bs>>>(ising_sign_d, ising_out);
         ising_out_h = (int*)malloc(ising_sign_size * sizeof(int));
         gpuErrchk(cudaMemcpy(ising_out_h, ising_out, ising_sign_size * sizeof(int), cudaMemcpyDeviceToHost));
 
@@ -139,15 +137,15 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-__global__ void vector_add(int* ising_sign_d, int* ising_out, int N)
+__global__ void v1_kernel(int* ising_sign_d, int* ising_out)
 {
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    int line = (idx / N) + 1;
-    int pos = (idx % N) + 1;
+    int line = (idx / n) + 1;
+    int pos = (idx % n) + 1;
 
     // ising_out = self+left+right+up+down / abs(self+left+right+up+down)
-    ising_out[idx] = ising_sign_d[line * (N + 2) + pos] + ising_sign_d[line * (N + 2) + (pos - 1)] + ising_sign_d[line * (N + 2) + (pos + 1)] + ising_sign_d[(line - 1) * (N + 2) + pos] + ising_sign_d[(line + 1) * (N + 2) + pos];
+    ising_out[idx] = ising_sign_d[line * (n + 2) + pos] + ising_sign_d[line * (n + 2) + (pos - 1)] + ising_sign_d[line * (n + 2) + (pos + 1)] + ising_sign_d[(line - 1) * (n + 2) + pos] + ising_sign_d[(line + 1) * (n + 2) + pos];
     ising_out[idx] /= abs(ising_out[idx]);
 }

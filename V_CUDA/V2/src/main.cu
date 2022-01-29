@@ -26,7 +26,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
     }
 }
 
-__global__ void vector_add(int* ising_sign_d, int* ising_out);
+__global__ void v2_kernel(int* ising_sign_d, int* ising_out);
 
 int main(int argc, char* argv[])
 {
@@ -61,7 +61,6 @@ int main(int argc, char* argv[])
     // boundaries set
 
     for (int k_count = 0; k_count < k; k_count++) {
-        printf("\n\n\nIteration_%d:\n\n", k_count + 1);
         // 1st column
         sign[0] = 0;
         sign[(n + 2) * (n + 1)] = 0;
@@ -112,7 +111,7 @@ int main(int argc, char* argv[])
         if ((nb * bs * b * b) != (n * n)) {
             printf("error\n");
         }
-        vector_add<<<nb, bs>>>(ising_sign_d, ising_out);
+        v2_kernel<<<nb, bs>>>(ising_sign_d, ising_out);
         ising_out_h = (int*)malloc(ising_sign_size * sizeof(int));
         gpuErrchk(cudaMemcpy(ising_out_h, ising_out, ising_sign_size * sizeof(int), cudaMemcpyDeviceToHost));
 
@@ -140,7 +139,7 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-__global__ void vector_add(int* ising_sign_d, int* ising_out)
+__global__ void v2_kernel(int* ising_sign_d, int* ising_out)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int blocks = b * b;
