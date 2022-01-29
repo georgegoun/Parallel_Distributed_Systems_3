@@ -6,16 +6,16 @@
 // 1:    8-2||       16-4||         4-4-2
 // 2:    5000-4||    25000-1000||   250-1000-10
 // 3:    10000-10||  50000-2000||   5000-200-10
-#define n 10000
-#define k 10
+#define n 5000
+#define k 250
 
 // v1
-#define nb 50000
-#define bs 2000
+#define nb 25000
+#define bs 1000
 
 // v2
-#define nb_v2 5000
-#define bs_v2 200
+#define nb_v2 250
+#define bs_v2 1000
 #define b_v2 10
 
 #define gpuErrchk(ans)                        \
