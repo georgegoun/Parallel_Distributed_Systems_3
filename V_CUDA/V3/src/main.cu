@@ -4,12 +4,12 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define n 8
+#define n 12
 #define k 2
-#define b 2
+#define b 8
 // 8-2-2-4-4-36
 // 6-2-1-9-4-16
-#define nb 4
+#define nb 9
 #define bs 4
 // type shared_size (sqrt((n*n)/nb)+2)^2
 #define shared_size 36
@@ -64,7 +64,6 @@ int main(int argc, char* argv[])
     // boundaries set
 
     for (int k_count = 0; k_count < k; k_count++) {
-        printf("\n\n\nIteration_%d:\n\n", k_count + 1);
         // 1st column
         sign[0] = 0;
         sign[(n + 2) * (n + 1)] = 0;
@@ -112,13 +111,14 @@ int main(int argc, char* argv[])
         gpuErrchk(cudaMemcpy(ising_sign_d, sign, sign_size * sizeof(int), cudaMemcpyHostToDevice));
         gpuErrchk(cudaMalloc((void**)&ising_out, sign_size * sizeof(int)));
 
-        if ((nb * bs * b * b) != (n * n)) {
-            printf("error\n");
-        }
         int block_elems = (sqrt((n * n) / nb) + 2) * (sqrt((n * n) / nb) + 2);
         int side_blocks = sqrt(nb);
-        int side_blocks_elems = sqrt(bs * b * b);
-        vector_add<<<nb, bs>>>(ising_sign_d, ising_out, block_elems, side_blocks, side_blocks_elems);
+        int side_block_elems = sqrt(block_elems) - 2;
+
+        if ((nb * bs * b * b) != (n * n) && ((side_block_elems * side_block_elems) / bs) == (b * b)) {
+            printf("error in assigned values\n");
+        }
+        vector_add<<<nb, bs>>>(ising_sign_d, ising_out, block_elems, side_blocks, side_block_elems);
         ising_out_h = (int*)malloc(sign_size * sizeof(int));
         gpuErrchk(cudaMemcpy(ising_out_h, ising_out, sign_size * sizeof(int), cudaMemcpyDeviceToHost));
 
@@ -154,9 +154,9 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
     // threads inside cooperate to fill shared memory
     int thread_shared_count = block_elems / bs;
     int idx_pos = (idx % bs) * thread_shared_count; // 0-9-18-27
-
-    if ((idx + 1) % nb == 0) {
-        thread_shared_count += block_elems % bs;
+    int thread_shared_count_temp = thread_shared_count;
+    if ((idx + 1) % bs == 0) {
+        thread_shared_count += block_elems % thread_shared_count_temp;
     }
     // fill shared with block's values
 
@@ -173,63 +173,58 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
     // block4 -> r(4-7)c(4-7)       12      12-15   -> 4-7 || 4-7   ->  1 || 1
 
     // Block's grid
-    int line0 = (bs * nb) / side_blocks; // 8
+    int line0 = bs * side_blocks; // 8
     int line = idx / line0;
     int column0 = idx % line0;
     int column = column0 / bs;
 
-    int line_index = line * (side_block_elems); // 0*4, 1*4
+    int line_index = ((side_block_elems * side_block_elems * side_blocks) + (side_block_elems * 2)) * line + n + 2 + 1;
     int column_index = column * (side_block_elems); // 0*4, 1*4
-    int j_line = idx_pos / (side_block_elems + 2); // 0/6 - 9/6 - 18/6 -27/6 || 0-1-3-4
-    // idx_pos 0-9-18-27
+
+    int j = line_index + column_index - n - 2 - 1;
+
+    int j_prev = 0;
+
+    if (idx_pos > 0) {
+        j_prev = idx_pos / (side_block_elems + 2) * (n + 2) + idx_pos % (side_block_elems + 2);
+    }
+    j += j_prev;
 
     // Fill shared_mem
 
-    int j = ((line_index + j_line) * (n + 2)) + column_index; // j 0 - 10 - 30 - 40
-
-    int j_prev = 0;
-    if (j > 0) {
-        j_prev = ((idx_pos) / (side_block_elems + 2)) * (n + 2) + ((idx_pos) % (side_block_elems + 2)) + column_index;
-        j += (j_prev - column_index) % (n + 2);
-    }
     for (int i = idx_pos; i < idx_pos + thread_shared_count; i++, j++) {
-        if (i > 0 && ((i % (side_block_elems + 2)) == 0) && j_prev != j) {
-            j += n + 2 - side_block_elems - 2;
-        }
         shared_mem[i] = ising_sign_d[j];
+
+        if ((i + 1) % (side_block_elems + 2) == 0) {
+            j = j + n + 2 - side_block_elems - 2;
+        }
     }
     __syncthreads();
 
     // Find ising model in shared
 
-    int ising_thread_count = ((n * n) / nb) / (b * b); // 16/4=4
-    int idxx_pos = (idx % bs) * thread_shared_count; // 0-4-8-12
-
-    int line_thread = idxx_pos / (b * b); // 0/4-4/4-8/4-12/4
-    if ((idx + 1) % nb == 0) {
-        ising_thread_count += ((n * n) / nb) % bs;
-    }
-    // Must b*b==bs && nb=4
-    for (int i = (side_block_elems + 2) * (line_thread + 1) + 1, j = 0; j < b * b; j++) {
-        shared_mem[i + j] = shared_mem[i + j] + shared_mem[i - 1 + j] + shared_mem[i + 1 + j] + shared_mem[i - side_block_elems - 2 + j] + shared_mem[i + side_block_elems + 2 + j];
-        shared_mem[i + j] /= abs(shared_mem[i + j]);
-    }
-    __syncthreads();
-
-    // Fill ising_sign_d
-
-    j = ((line_index + j_line) * (n + 2)) + column_index; // j 0 - 10 - 30 - 40
+    j = line_index + column_index - n - 2 - 1;
 
     j_prev = 0;
-    if (j > 0) {
-        j_prev = ((idx_pos) / (side_block_elems + 2)) * (n + 2) + ((idx_pos) % (side_block_elems + 2)) + column_index;
-        j += (j_prev - column_index) % (n + 2);
+
+    if (idx_pos > 0) {
+        j_prev = idx_pos / (side_block_elems + 2) * (n + 2) + idx_pos % (side_block_elems + 2);
     }
+    j += j_prev;
+
     for (int i = idx_pos; i < idx_pos + thread_shared_count; i++, j++) {
-        if (i > 0 && ((i % (side_block_elems + 2)) == 0) && j_prev != j) {
-            j += n + 2 - side_block_elems - 2;
+        if ((i > side_block_elems + 2) && (i < (block_elems - side_block_elems - 2 - 1)) && ((i + 1) % (side_block_elems + 2) != 0) && (i % (side_block_elems + 2) != 0)) {
+            ising_out[j] = shared_mem[i] + shared_mem[i - 1] + shared_mem[i + 1] + shared_mem[i - side_block_elems - 2] + shared_mem[i + side_block_elems + 2];
+            ising_out[j] /= abs(ising_out[j]);
+        } else {
+            if (xBlock == 0) {
+                printf("ok ");
+            }
+            ising_out[j] = shared_mem[i];
         }
-        ising_out[j] = shared_mem[i];
+        if ((i + 1) % (side_block_elems + 2) == 0) {
+            j = j + n + 2 - side_block_elems - 2;
+        }
     }
     __syncthreads();
 }
