@@ -11,7 +11,7 @@
 // 3:   10000-10    ||  10000-10-50000-2000 ||  10000-10-5000-200-10    ||
 
 #define n 4096
-#define k 4
+#define k 100
 
 // v1
 #define nb 4096
@@ -70,6 +70,11 @@ __global__ void v3_kernel(int* ising_sign_d_v3, int* ising_out_v3, int block_ele
 
 int main(int argc, char* argv[])
 {
+    printf("implematation parameteres for n: %d k: %d\n\n", n, k);
+    printf("V1| nb_v1: %d bs_v1: %d\n\n", nb, bs);
+    printf("V2|| nb_v2: %d bs_v2: %d b_v2: %d\n\n", nb_v2, bs_v2, b_v2);
+    printf("V3|| nb_v3: %d bs_v3: %d b_v3: %d\n\n", nb_v3, bs_v3, b_v3);
+
     int* sign;
     time_t t;
 
