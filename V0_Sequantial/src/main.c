@@ -13,18 +13,21 @@ int main(int argc, char* argv[])
     time_t t;
 
     /* Intializes random number generator */
+
     srand((unsigned)time(&t));
 
     int sign_size = (n + 2) * (n + 2);
     int ising_sign_size = n * n;
+
     // Malloc 1D Arrays
 
     sign = (int*)malloc(sign_size * sizeof(int));
     ising_sign = (int*)malloc(ising_sign_size * sizeof(int));
 
-    // Could use module but is better for CPI to surround the array with 1 line of values
+    // Could use mod for idexes to get border values, but better surround the array with 4 line of values
+    // Less cost in CPI for big data
 
-    // Initialize 1D array
+    // Initialize array
 
     for (int i = 0; i < sign_size; i++) {
         sign[i] = 1 - (2 * (rand() % 2));
@@ -32,6 +35,7 @@ int main(int argc, char* argv[])
     printf("\n");
 
     for (int k_count = 0; k_count < k; k_count++) {
+
         // 1st column
         sign[0] = 0;
         sign[(n + 2) * (n + 1)] = 0;

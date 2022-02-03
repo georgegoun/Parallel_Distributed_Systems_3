@@ -1,0 +1,24 @@
+implematation parameteres for n: 4096 k: 50
+
+V1| nb_v1: 4096 bs_v1: 4096
+
+V2|| nb_v2: 4096 bs_v2: 64 b_v2: 8
+
+V3|| nb_v3: 4096 bs_v3: 64 b_v3: 8
+
+
+v0 starts
+
+Time for V0: 9.173128 seconds
+
+v1 starts
+
+Time for V1: 4.145909 seconds
+
+v2 starts
+
+Time for V2: 4.853696 seconds
+
+v3 starts
+
+Time for V3: 3.838629 seconds

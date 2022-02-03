@@ -4,30 +4,24 @@
 #include <stdlib.h>
 #include <time.h>
 
-// n - k - nb - bs - b - shared_size
-// V0 || V1 || V2 || V3
-// 1:   8-2         ||  8-2-16-4            ||  8-2-4-4-2               ||  8-2-4-4-2-36
-// 2:   5000-4      ||  4096-4-4096-4096    ||  4096-4-4096-64-8        ||  4096-4-4096-64-32-66564 // // 4096-4-4096-64-8-4356
-// 3:   10000-10    ||  10000-10-50000-2000 ||  10000-10-5000-200-10    ||
-
-#define n 4096
+#define n 10000
 #define k 100
 
 // v1
-#define nb 4096
-#define bs 4096
+#define nb 10000
+#define bs 10000
 
 // v2
-#define nb_v2 4096
-#define bs_v2 64
-#define b_v2 8
+#define nb_v2 62500
+#define bs_v2 16
+#define b_v2 10
 
 // v3
-#define nb_v3 4096
-#define bs_v3 64
-#define b_v3 8
+#define nb_v3 62500
+#define bs_v3 40
+#define b_v3 10
 // type shared_size (sqrt((n*n)/nb_v3)+2)^2
-#define shared_size 4356
+#define shared_size 1764
 
 #define gpuErrchk(ans)                        \
     {                                         \
@@ -43,7 +37,9 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
         }
     }
 }
+
 // Timer
+
 struct timespec timerStart(struct timespec start)
 {
     clock_gettime(CLOCK_MONOTONIC, &start);
@@ -83,13 +79,15 @@ int main(int argc, char* argv[])
 
     int sign_size = (n + 2) * (n + 2);
     int ising_sign_size = n * n;
-    // Malloc 1D Arrays
+
+    // Malloc Array
 
     sign = (int*)malloc(sign_size * sizeof(int));
 
-    // Could use module but is better for CPI to surround the array with 1 line of values
+    // Could use mod for indexes to get border values, but better surround the array with 4 line of values
+    // Less cost in CPI for big data
 
-    // Initialize 1D array
+    // Initialize array
 
     for (int i = 0; i < sign_size; i++) {
         sign[i] = 1 - (2 * (rand() % 2));
@@ -116,6 +114,7 @@ int main(int argc, char* argv[])
 
     start_v0 = timerStart(start_v0);
     for (int k_count = 0; k_count < k; k_count++) {
+
         // 1st column
         sign_v0[0] = 0;
         sign_v0[(n + 2) * (n + 1)] = 0;
@@ -532,26 +531,20 @@ __global__ void v3_kernel(int* ising_sign_d_v3, int* ising_out_v3, int block_ele
     }
     // fill shared with block's values
 
-    // each block:
-    // 16 values
-    // 4 threads
-    // 2 * 2 bb
-    // side_blocks = 2 (sqrt(nb))
-
-    // so 4 blocks -> 2 lines 2 columns
+    // example of 4 blocks -> 2 lines 2 columns
     // block1 -> r(0-3)c(0-3)       0       0-3     -> 0-3 || 0-3   ->  0 || 0
     // block2 -> r(0-3)c(4-7)       4       4-7     -> 0-3 || 4-7   ->  0 || 1
     // block3 -> r(4-7)c(0-3)       8       8-11    -> 4-7 || 0-3   ->  1 || 0
     // block4 -> r(4-7)c(4-7)       12      12-15   -> 4-7 || 4-7   ->  1 || 1
 
     // Block's grid
-    int line0 = bs_v3 * side_blocks; // 8
+    int line0 = bs_v3 * side_blocks;
     int line = idx / line0;
     int column0 = idx % line0;
     int column = column0 / bs_v3;
 
     int line_index = ((side_block_elems * side_block_elems * side_blocks) + (side_block_elems * 2)) * line + n + 2 + 1;
-    int column_index = column * (side_block_elems); // 0*4, 1*4
+    int column_index = column * (side_block_elems);
 
     int j = line_index + column_index - n - 2 - 1;
 

@@ -44,14 +44,15 @@ int main(int argc, char* argv[])
 
     int sign_size = (n + 2) * (n + 2);
     int ising_sign_size = n * n;
+
     // Malloc 1D Arrays
 
     sign = (int*)malloc(sign_size * sizeof(int));
 
-    // Could use module but better surround the array with 1 line of values
-    // Example cost of 40000 X 40000 array in CPI
+    // Could use mod for indexes to get border values, but better surround the array with 4 line of values
+    // Less cost in CPI for big data
 
-    // Initialize 2D array
+    // Initialize array
 
     for (int i = 0; i < sign_size; i++) {
         sign[i] = 1 - (2 * (rand() % 2));
@@ -61,6 +62,7 @@ int main(int argc, char* argv[])
     // boundaries set
 
     for (int k_count = 0; k_count < k; k_count++) {
+
         // 1st column
         sign[0] = 0;
         sign[(n + 2) * (n + 1)] = 0;

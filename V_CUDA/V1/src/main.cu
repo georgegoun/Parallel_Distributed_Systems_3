@@ -1,6 +1,7 @@
+// google colab instructions
 //! pip install git+git://github.com/andreinechaev/nvcc4jupyter.git
 //%load_ext nvcc_plugin
-//% % cu
+//%%cu
 #include <cuda.h>
 #include <math.h>
 #include <stdio.h>
@@ -50,7 +51,8 @@ int main(int argc, char* argv[])
 
     sign = (int*)malloc(sign_size * sizeof(int));
 
-    // Could use module but is better for CPI to surround the array with 1 line of values
+    // Could use mod for indexes to get border values, but better surround the array with 4 line of values
+    // Less cost in CPI for big data
 
     // Initialize 1D array
 

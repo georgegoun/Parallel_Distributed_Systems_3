@@ -1,0 +1,24 @@
+implematation parameteres for n: 10000 k: 100
+
+V1| nb_v1: 10000 bs_v1: 10000
+
+V2|| nb_v2: 62500 bs_v2: 16 b_v2: 10
+
+V3|| nb_v3: 62500 bs_v3: 40 b_v3: 10
+
+
+v0 starts
+
+Time for V0: 107.848795 seconds
+
+v1 starts
+
+Time for V1: 54.880327 seconds
+
+v2 starts
+
+Time for V2: 74.425761 seconds
+
+v3 starts
+
+Time for V3: 63.450790 seconds

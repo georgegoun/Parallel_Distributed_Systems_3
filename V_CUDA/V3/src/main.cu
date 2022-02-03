@@ -7,10 +7,10 @@
 #define n 12
 #define k 2
 #define b 8
-// 8-2-2-4-4-36
-// 6-2-1-9-4-16
 #define nb 9
 #define bs 4
+// 8-2-2-4-4-36
+// 6-2-1-9-4-16
 // type shared_size (sqrt((n*n)/nb)+2)^2
 #define shared_size 36
 
@@ -46,15 +46,15 @@ int main(int argc, char* argv[])
     srand((unsigned)time(&t));
 
     int sign_size = (n + 2) * (n + 2);
-    int ising_sign_size = n * n;
+
     // Malloc 1D Arrays
 
     sign = (int*)malloc(sign_size * sizeof(int));
 
-    // Could use module but better surround the array with 1 line of values
-    // Less cost in CPI
+    // Could use mod for indexes to get border values, but better surround the array with 4 line of values
+    // Less cost in CPI for big data
 
-    // Initialize 2D array
+    // Initialize array
 
     for (int i = 0; i < sign_size; i++) {
         sign[i] = 1 - (2 * (rand() % 2));
@@ -64,6 +64,7 @@ int main(int argc, char* argv[])
     // boundaries set
 
     for (int k_count = 0; k_count < k; k_count++) {
+
         // 1st column
         sign[0] = 0;
         sign[(n + 2) * (n + 1)] = 0;
@@ -150,36 +151,30 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
     unsigned int yBlock = blockDim.y * blockIdx.y;
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    // example of 4 blocks on 8 * 8 = 64 array
     // threads inside cooperate to fill shared memory
+
     int thread_shared_count = block_elems / bs;
-    int idx_pos = (idx % bs) * thread_shared_count; // 0-9-18-27
+    int idx_pos = (idx % bs) * thread_shared_count;
     int thread_shared_count_temp = thread_shared_count;
     if ((idx + 1) % bs == 0) {
         thread_shared_count += block_elems % thread_shared_count_temp;
     }
     // fill shared with block's values
 
-    // each block:
-    // 16 values
-    // 4 threads
-    // 2 * 2 bb
-    // side_blocks = 2 (sqrt(nb))
-
-    // so 4 blocks -> 2 lines 2 columns
+    // example of 4 blocks -> 2 lines 2 columns
     // block1 -> r(0-3)c(0-3)       0       0-3     -> 0-3 || 0-3   ->  0 || 0
     // block2 -> r(0-3)c(4-7)       4       4-7     -> 0-3 || 4-7   ->  0 || 1
     // block3 -> r(4-7)c(0-3)       8       8-11    -> 4-7 || 0-3   ->  1 || 0
     // block4 -> r(4-7)c(4-7)       12      12-15   -> 4-7 || 4-7   ->  1 || 1
 
     // Block's grid
-    int line0 = bs * side_blocks; // 8
+    int line0 = bs * side_blocks;
     int line = idx / line0;
     int column0 = idx % line0;
     int column = column0 / bs;
 
     int line_index = ((side_block_elems * side_block_elems * side_blocks) + (side_block_elems * 2)) * line + n + 2 + 1;
-    int column_index = column * (side_block_elems); // 0*4, 1*4
+    int column_index = column * (side_block_elems);
 
     int j = line_index + column_index - n - 2 - 1;
 
@@ -217,9 +212,6 @@ __global__ void vector_add(int* ising_sign_d, int* ising_out, int block_elems, i
             ising_out[j] = shared_mem[i] + shared_mem[i - 1] + shared_mem[i + 1] + shared_mem[i - side_block_elems - 2] + shared_mem[i + side_block_elems + 2];
             ising_out[j] /= abs(ising_out[j]);
         } else {
-            if (xBlock == 0) {
-                printf("ok ");
-            }
             ising_out[j] = shared_mem[i];
         }
         if ((i + 1) % (side_block_elems + 2) == 0) {
